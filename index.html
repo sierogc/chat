@@ -33,7 +33,8 @@
             gap: 40px; 
             padding: 20px;
             height: 100vh; 
-            width: 100%; 
+            /* Larghezza massima per l'intero blocco delle chat */
+            max-width: 800px; 
             align-items: center;
             justify-content: center; 
             box-sizing: border-box;
@@ -41,16 +42,18 @@
 
         /* Lo schermo centrato (responsive) */
         .chat-container {
-            flex: 1; 
-            width: 100%; 
+            /* NUOVA LARGHEZZA FISSA */
+            max-width: 380px; 
+            min-width: 300px; 
             height: 100%; 
             
             background-color: #ffffff;
             display: flex;
             flex-direction: column;
             overflow: hidden; 
-            border: none; 
-            box-shadow: none;
+            border: 1px solid #d9d9d9; /* Aggiunto bordo leggero per separare visualmente */
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
         
         /* Finestra dove appaiono i messaggi (Scorrimento Manuale) */
@@ -192,7 +195,7 @@
         /* Barra di input finta */
         .fake-input-bar {
             padding: 10px 15px;
-            border-top: none; 
+            border-top: 1px solid #f0f0f0; 
             background-color: #ffffff; 
             padding-bottom: 25px; 
         }
@@ -253,64 +256,23 @@
         @media (max-width: 800px) {
             #main-container {
                 flex-direction: column; 
-                height: 100vh;
+                height: auto;
+                min-height: 100vh;
                 padding: 10px;
                 gap: 20px;
                 overflow-y: auto; 
+                max-width: 100%; /* Rimuove il limite quando sono in colonna */
             }
 
             .chat-container {
                 width: 100%;
-                max-width: none;
+                max-width: 100%; /* Lascia che occupino tutta la larghezza dello schermo */
                 height: 50vh; 
             }
         }
-        
-        /* SCHERMO DI AVVIO PER SBLOCCARE L'AUDIO */
-        #start-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 1.5rem;
-            text-align: center;
-            z-index: 100;
-            cursor: pointer;
-            transition: opacity 0.5s;
-        }
-
-        #start-button {
-            background-color: #007aff;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 30px;
-            margin-top: 20px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.5);
-            transition: background-color 0.2s;
-        }
-
-        #start-button:hover {
-            background-color: #005bb5;
-        }
-
     </style>
 </head>
 <body>
-
-    <div id="start-screen">
-        <p>Clicca sotto per avviare la simulazione e sbloccare l'audio.</p>
-        <div id="start-button">AVVIA SIMULATORE</div>
-    </div>
-
 
     <div id="main-container">
         <div id="chat-container-1" class="chat-container">
@@ -366,8 +328,6 @@
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             const typingAudio = document.getElementById('typing-audio');
             const receiveAudio = document.getElementById('receive-audio');
-            const startScreen = document.getElementById('start-screen');
-            const startButton = document.getElementById('start-button');
 
             let chat1Finished = false;
             let chat2Finished = false;
@@ -556,7 +516,8 @@
                     this.chatWindow.insertBefore(messageElement, this.typingIndicator);
                     
                     if (type === 'recipient') {
-                        receiveAudio.play().catch(e => {});
+                        // Tenta la riproduzione. Se fallisce per restrizioni, il browser ignora.
+                        receiveAudio.play().catch(e => {}); 
                     }
                 }
 
@@ -573,7 +534,8 @@
                     this.inputMessageTyping.textContent = ''; 
                     
                     if (typingAudio.paused) {
-                        typingAudio.play().catch(e => {});
+                        // Tenta la riproduzione. Se fallisce per restrizioni, il browser ignora.
+                        typingAudio.play().catch(e => {}); 
                     }
                     
                     const charDelay = duration / text.length; 
@@ -601,24 +563,23 @@
                     this.resetInputBar();
 
                     for (const step of this.script) {
-                        // Attesa esplicita per il passo precedente
-                        if (step.type !== 'wait') {
-                           await sleep(step.delay);
-                        }
-
-
+                        
                         if (step.type === 'wait') {
-                            await sleep(step.delay);
+                           await sleep(step.delay);
                         } else if (step.type === 'message') {
-                            // Nasconde l'indicatore di digitazione prima di inviare la bolla
+                            // Questo messaggio attende il tempo definito in .delay
+                            await sleep(step.delay); 
+                            
                             this.hideTyping();
                             this.resetInputBar(); 
                             this.addMessage(step.text, step.sender); 
                         } else if (step.type === 'typing_start' && step.sender === 'recipient') { 
                             // Avvia la simulazione "Sta scrivendo..." per il Recipient
+                            await sleep(step.delay); 
                             this.showTyping();
                         } else if (step.type === 'sender_text_typing_start') { 
                             // Avvia la digitazione nella barra di input per il Sender
+                            await sleep(step.delay); 
                             await this.typeSenderMessage(step.text, step.delay);
                         }
                     }
@@ -675,34 +636,8 @@
                 await generateAndStartChats();
             }
 
-            // =================================================================
-            // === LOGICA DI SBLOCCO AUDIO TRAMITE CLICK UTENTE ===
-            // =================================================================
-            
-            startButton.addEventListener('click', function() {
-                // Tenta di avviare un suono (anche se muto) per sbloccare l'API Audio
-                receiveAudio.volume = 0;
-                receiveAudio.play().then(() => {
-                    receiveAudio.volume = 1;
-                    
-                    // Nasconde l'overlay
-                    startScreen.style.opacity = '0';
-                    setTimeout(() => {
-                        startScreen.style.display = 'none';
-                    }, 500);
-
-                    // AVVIO INIZIALE DELLA SIMULAZIONE
-                    generateAndStartChats();
-                }).catch(e => {
-                    console.error("L'audio non è stato sbloccato. Avvio la simulazione senza audio.", e);
-                    // Nasconde l'overlay anche se fallisce, ma senza audio.
-                    startScreen.style.opacity = '0';
-                    setTimeout(() => {
-                        startScreen.style.display = 'none';
-                    }, 500);
-                    generateAndStartChats();
-                });
-            });
+            // AVVIO IMMEDIATO
+            generateAndStartChats();
 
         });
     </script>
