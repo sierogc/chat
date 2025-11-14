@@ -42,15 +42,15 @@
         /* Lo schermo centrato (responsive) */
         .chat-container {
             flex: 1; /* Permette alle chat di crescere e occupare lo spazio disponibile */
-            max-width: 500px; /* Impostiamo un limite massimo ragionevole per una singola chat */
+            max-width: 400px; /* Impostiamo un limite massimo più stretto */
             height: 100%; 
             
             background-color: #ffffff;
             display: flex;
             flex-direction: column;
             overflow: hidden; 
-            border: none; /* Rimosso bordo */
-            box-shadow: none; /* Rimosso ombra */
+            border: none; 
+            box-shadow: none; 
         }
         
         /* Finestra dove appaiono i messaggi (Scorrimento Manuale) */
@@ -192,7 +192,7 @@
         /* Barra di input finta */
         .fake-input-bar {
             padding: 10px 15px;
-            border-top: 1px solid #f0f0f0; 
+            border-top: none; /* Rimosso il bordo superiore */
             background-color: #ffffff; 
             padding-bottom: 25px; 
         }
