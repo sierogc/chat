@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Due Chat Randomiche Indipendenti</title>
+    <title>Due Chat Randomiche Bilanciate</title>
     
     <style>
         /* Impostazioni globali */
@@ -22,6 +22,7 @@
             justify-content: center; 
             align-items: center; 
             height: 100vh; 
+            width: 100vw; 
             overflow-x: auto; 
         }
 
@@ -30,15 +31,19 @@
             display: flex;
             gap: 40px; 
             padding: 20px;
-            height: 100%;
+            height: 100vh; 
+            width: 100%; 
             align-items: center;
+            justify-content: center; 
+            box-sizing: border-box;
         }
 
         /* Lo schermo centrato (responsive) */
         .chat-container {
-            width: 100%;
-            max-width: 400px; 
-            height: 95vh; 
+            flex: 1; 
+            width: 100%; 
+            height: 100%; 
+            
             background-color: #ffffff;
             display: flex;
             flex-direction: column;
@@ -261,6 +266,10 @@
             const typingAudio = document.getElementById('typing-audio');
             const receiveAudio = document.getElementById('receive-audio');
 
+            // Variabile globale per tracciare lo stato di completamento di entrambe le chat
+            let chat1Finished = false;
+            let chat2Finished = false;
+
             // =================================================================
             // === MESSAGGI BASE E GENERAZIONE RANDOMICA ===
             // =================================================================
@@ -296,6 +305,7 @@
                 return newArray;
             }
 
+            // Funzione MODIFICATA per bilanciare la distribuzione dei messaggi
             function generateRandomScript() {
                 const shuffledSender = shuffleArray(senderMessages);
                 const shuffledRecipientBody = shuffleArray(recipientMessagesPool);
@@ -303,36 +313,68 @@
                 const script = [];
                 let senderIndex = 0;
                 let recipientIndex = 0;
+                let senderCount = 0;
+                let recipientCount = 0;
 
                 // 1. Inserisci la frase iniziale fissa del destinatario
                 script.push({ type: 'typing', delay: Math.floor(Math.random() * 1000) + 500 });
                 script.push({ type: 'message', sender: 'recipient', text: fixedRecipientStart, delay: Math.floor(Math.random() * 1500) + 1000 });
-                
-                // 2. Continua con il corpo della conversazione casuale finché ci sono messaggi
+                recipientCount++; // Conta la prima frase
+
+                // 2. Continua con il corpo della conversazione casuale bilanciata
                 while (senderIndex < shuffledSender.length || recipientIndex < shuffledRecipientBody.length) {
                     
-                    const startWithRecipient = Math.random() < 0.5;
+                    let nextIsRecipient;
+                    
+                    // Logica di bilanciamento: cerca di pareggiare il numero di messaggi inviati finora
+                    if (senderCount === recipientCount) {
+                        // Se sono pari, scegli casualmente chi parla (50/50)
+                        nextIsRecipient = Math.random() < 0.5;
+                    } else if (senderCount < recipientCount) {
+                        // Se il Sender è in ritardo, è più probabile che sia il suo turno
+                        nextIsRecipient = Math.random() < 0.3; // 70% di probabilità che sia Sender
+                    } else { // senderCount > recipientCount
+                        // Se il Recipient è in ritardo, è più probabile che sia il suo turno
+                        nextIsRecipient = Math.random() < 0.7; // 70% di probabilità che sia Recipient
+                    }
 
-                    // Gestione del turno del Destinatario (usando i messaggi rimanenti del pool)
-                    if (startWithRecipient && recipientIndex < shuffledRecipientBody.length) {
+
+                    if (nextIsRecipient && recipientIndex < shuffledRecipientBody.length) {
+                        // Turno del Destinatario
                         script.push({ type: 'typing', delay: Math.floor(Math.random() * 1000) + 500 });
                         script.push({ type: 'message', sender: 'recipient', text: shuffledRecipientBody[recipientIndex], delay: Math.floor(Math.random() * 1500) + 1000 });
                         recipientIndex++;
-                    }
-
-                    // Gestione del turno del Mittente
-                    if (senderIndex < shuffledSender.length) {
+                        recipientCount++;
+                    } 
+                    
+                    else if (!nextIsRecipient && senderIndex < shuffledSender.length) {
+                        // Turno del Mittente
                         const typingTime = shuffledSender[senderIndex].length * (Math.random() * 50 + 50); 
                         script.push({ type: 'sender_text_typing', text: shuffledSender[senderIndex], delay: Math.round(typingTime) });
                         script.push({ type: 'message', sender: 'sender', text: shuffledSender[senderIndex], delay: Math.floor(Math.random() * 500) + 200 });
                         senderIndex++;
-                    }
+                        senderCount++;
+                    } 
                     
-                    // Gestione del turno del Destinatario se non è partito per primo nel loop
-                    if (!startWithRecipient && recipientIndex < shuffledRecipientBody.length) {
-                         script.push({ type: 'typing', delay: Math.floor(Math.random() * 1000) + 500 });
-                        script.push({ type: 'message', sender: 'recipient', text: shuffledRecipientBody[recipientIndex], delay: Math.floor(Math.random() * 1500) + 1000 });
-                        recipientIndex++;
+                    else {
+                        // Se la persona "scelta" non ha più frasi, diamo la possibilità all'altra di finire
+                        if (senderIndex < shuffledSender.length) {
+                            // Se Recipient era stato scelto ma è finito, il Sender invia comunque un messaggio
+                            const typingTime = shuffledSender[senderIndex].length * (Math.random() * 50 + 50); 
+                            script.push({ type: 'sender_text_typing', text: shuffledSender[senderIndex], delay: Math.round(typingTime) });
+                            script.push({ type: 'message', sender: 'sender', text: shuffledSender[senderIndex], delay: Math.floor(Math.random() * 500) + 200 });
+                            senderIndex++;
+                            senderCount++;
+                        } else if (recipientIndex < shuffledRecipientBody.length) {
+                            // Se Sender era stato scelto ma è finito, il Recipient invia comunque un messaggio
+                            script.push({ type: 'typing', delay: Math.floor(Math.random() * 1000) + 500 });
+                            script.push({ type: 'message', sender: 'recipient', text: shuffledRecipientBody[recipientIndex], delay: Math.floor(Math.random() * 1500) + 1000 });
+                            recipientIndex++;
+                            recipientCount++;
+                        } else {
+                            // Entrambi i pool sono vuoti
+                            break;
+                        }
                     }
                 }
                 
@@ -422,46 +464,74 @@
                         }
                     }
 
-                    // *** MODIFICA CHIAVE: Pausa di 10 secondi ***
-                    await sleep(10000); 
+                    // Segnala che questa chat ha finito
+                    if (this.id === 1) {
+                        chat1Finished = true;
+                    } else {
+                        chat2Finished = true;
+                    }
 
-                    // Pulisci i messaggi
-                    const messages = this.chatWindow.querySelectorAll('.message');
-                    messages.forEach(msg => msg.remove());
-                    
-                    this.hideTyping();
-                    this.resetInputBar();
-
-                    await sleep(500);
-                    // Riavvia con un nuovo script randomico
-                    let newScript;
-                    do {
-                        newScript = generateRandomScript();
-                    } while (JSON.stringify(newScript) === JSON.stringify(this.script)); // Assicura che sia diverso dalla precedente esecuzione
-
-                    this.script = newScript;
-                    this.runScript(); 
+                    // Avvia il riavvio solo se entrambe le chat hanno finito
+                    if (chat1Finished && chat2Finished) {
+                        await startNewIteration();
+                    }
                 }
             }
 
             // =================================================================
-            // === AVVIO DELLE DUE CHAT ===
+            // === LOGICA DI AVVIO E RIPETIZIONE SINCRONIZZATA ===
             // =================================================================
 
-            // Genera due script iniziali e diversi
-            let script1 = generateRandomScript();
-            let script2;
+            let chat1, chat2;
 
-            do {
-                script2 = generateRandomScript();
-            } while (JSON.stringify(script1) === JSON.stringify(script2)); // Assicura che siano diversi tra loro
+            async function generateAndStartChats() {
+                 // 1. Genera due script iniziali e diversi
+                let script1 = generateRandomScript();
+                let script2;
 
-            // Crea e avvia i controller per le due chat
-            const chat1 = new ChatController(1, script1);
-            const chat2 = new ChatController(2, script2);
+                do {
+                    script2 = generateRandomScript();
+                } while (JSON.stringify(script1) === JSON.stringify(script2)); // Assicura che siano diversi
 
-            chat1.runScript();
-            sleep(Math.random() * 1000).then(() => chat2.runScript());
+                // 2. Crea e avvia i controller (o aggiorna se esistono)
+                if (!chat1) {
+                    chat1 = new ChatController(1, script1);
+                    chat2 = new ChatController(2, script2);
+                } else {
+                    chat1.script = script1;
+                    chat2.script = script2;
+                }
+
+                // Resetta lo stato di completamento
+                chat1Finished = false;
+                chat2Finished = false;
+
+                // 3. Avvia le chat con un piccolo sfasamento temporale casuale
+                chat1.runScript();
+                sleep(Math.random() * 1000).then(() => chat2.runScript());
+            }
+
+            async function startNewIteration() {
+                // Pausa di 10 secondi per permettere la lettura
+                await sleep(10000); 
+
+                // Pulisci entrambe le chat
+                chat1.chatWindow.querySelectorAll('.message').forEach(msg => msg.remove());
+                chat2.chatWindow.querySelectorAll('.message').forEach(msg => msg.remove());
+                
+                chat1.hideTyping();
+                chat1.resetInputBar();
+                chat2.hideTyping();
+                chat2.resetInputBar();
+
+                await sleep(500);
+                
+                // Riavvia con nuovi script
+                await generateAndStartChats();
+            }
+
+            // AVVIO INIZIALE
+            generateAndStartChats();
 
         });
     </script>
